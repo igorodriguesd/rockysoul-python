@@ -13,10 +13,10 @@ def menu_uso_sistema(sistema):
         print(f"\n===== DASHBOARD SOULUP - {usuario['nome']} =====")
         print("1 - Registrar ação sustentável")
         print("2 - Ver meu nível e estatísticas")
-        print("3 - Resgatar recompensas (benefícios reais)")
+        print("3 - Resgatar recompensas (Benefícios reais)")
         print("4 - Sugestão do avatar")
         print("5 - Ver ranking da semana")
-        print("0 - Voltar")
+        print("0 - Sair")
         opcao = input("Escolha: ").strip()
         if opcao == "1":
             funcoes.registrar_acao(sistema, usuario)
