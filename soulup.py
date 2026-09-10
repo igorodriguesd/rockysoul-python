@@ -1,9 +1,55 @@
+import random
 
 acoes = ("Reciclagem", "Transporte Público", "Economia de Energia", "Economia de Água", "Bicicleta", "Plantio de Árvore", "Banho Rápido")
 
 pontos_ecoa = 0
 pontos_resgatados = 0
 historico = []
+
+# --- Estado da Coleção de Cartas (novo) ---
+colecao = {}          # nome_carta -> {"set": str, "raridade": str, "brilhante": bool}
+fragmentos = 0
+creditos_colecao = 0
+sets_completos = set()  # nomes dos sets que já ativaram a Química de Set
+
+# 5 sets temáticos com 4 cartas cada (20 cartas no total), conforme a documentação da Sprint 3
+SETS = {
+    "Recursos": [
+        ("Reciclagem", "Comum"),
+        ("Reutilização", "Incomum"),
+        ("Sacola Reutilizável", "Rara"),
+        ("Redução de Desperdício", "Épica"),
+    ],
+    "Guardiões da Água": [
+        ("Economia de Água", "Comum"),
+        ("Banho Rápido", "Incomum"),
+        ("Garrafa Reutilizável", "Rara"),
+        ("Captação de Chuva", "Épica"),
+    ],
+    "Cidade Verde": [
+        ("Bicicleta", "Comum"),
+        ("Transporte Público", "Incomum"),
+        ("Mobilidade Elétrica", "Rara"),
+        ("Ciclovia", "Épica"),
+    ],
+    "Energia Limpa": [
+        ("Economia de Energia", "Comum"),
+        ("Iluminação Eficiente", "Incomum"),
+        ("Energia Solar", "Rara"),
+        ("Energia Eólica", "Épica"),
+    ],
+    "Cultivo": [
+        ("Plantio", "Comum"),
+        ("Compostagem", "Incomum"),
+        ("Horta Doméstica", "Rara"),
+        ("Agrofloresta", "Lendária"),
+    ],
+}
+
+CHANCE_POR_RARIDADE = {"Lendária": 10, "Épica": 20, "Rara": 35, "Incomum": 55, "Comum": 75}
+FRAGMENTOS_POR_RARIDADE = {"Comum": 3, "Incomum": 5, "Rara": 10, "Épica": 20, "Lendária": 40}
+CUSTO_FABRICA_POR_RARIDADE = {"Comum": 10, "Incomum": 16, "Rara": 32, "Épica": 70, "Lendária": 140}
+CHANCE_BRILHANTE = 8
 
 
 def identificar_nivel(pontos_ecoa: int) -> str:
@@ -60,7 +106,82 @@ def calcular_pontos(acao: str) -> int:
 # Recebe uma ação e retorna a quantidade de pontos que ela vale.
 
 
-def registrar_acao(acoes: list, pontos_ecoa: int, historico: list) -> int:
+def sortear_raridade() -> str:
+    for raridade, chance in CHANCE_POR_RARIDADE.items():
+        if random.random() * 100 < chance:
+            return raridade
+
+    return "Comum"
+
+# Sorteia e retorna a raridade da cartinha, testando da mais rara para a mais comum
+# conforme as chances da tabela (Lendária 10%, Épica 20%, Rara 35%, Incomum 55%, Comum 75%),
+# com fallback garantido em "Comum".
+
+
+def sortear_carta(raridade: str) -> tuple:
+    cartas_da_raridade = []
+
+    for set_nome, cartas in SETS.items():
+        for nome_carta, raridade_carta in cartas:
+            if raridade_carta == raridade:
+                cartas_da_raridade.append((set_nome, nome_carta))
+
+    return random.choice(cartas_da_raridade)
+
+# Recebe uma raridade e retorna (nome do set, nome da carta) sorteados entre as cartas daquela raridade.
+
+
+def sortear_brilhante() -> bool:
+    return random.random() * 100 < CHANCE_BRILHANTE
+
+# Sorteia, de forma independente da raridade, se a carta vem na versão brilhante (8% de chance).
+
+
+def set_completo(set_nome: str, colecao: dict) -> bool:
+    cartas_do_set = SETS[set_nome]
+    return all(nome_carta in colecao for nome_carta, _ in cartas_do_set)
+
+# Recebe o nome de um set e a coleção, e retorna True se as 4 cartas do set já foram obtidas.
+
+
+def girar_roleta(colecao: dict, fragmentos: int, creditos_colecao: int, sets_completos: set) -> tuple:
+    try:
+        raridade = sortear_raridade()
+        set_nome, nome_carta = sortear_carta(raridade)
+        brilhante = sortear_brilhante()
+
+    except Exception as erro:
+        print(f"Ocorreu um erro ao girar a roleta: {erro}")
+        return colecao, fragmentos, creditos_colecao, sets_completos
+
+    else:
+        print("\n*** GIRANDO A ROLETA DE CARTAS... ***")
+        print(f"Raridade sorteada: {raridade}" + (" ✦ Versão Brilhante!" if brilhante else ""))
+
+        if nome_carta in colecao:
+            ganho = FRAGMENTOS_POR_RARIDADE[raridade]
+            fragmentos += ganho
+            print(f"Você já possui '{nome_carta}'. Convertido em +{ganho} fragmentos!")
+        else:
+            colecao[nome_carta] = {"set": set_nome, "raridade": raridade, "brilhante": brilhante}
+            print(f"Nova carta! Você ganhou '{nome_carta}' ({raridade}) do set {set_nome}.")
+
+            if set_completo(set_nome, colecao) and set_nome not in sets_completos:
+                sets_completos.add(set_nome)
+                creditos_colecao += 150
+                print(f"Química de Set ativada para '{set_nome}'! +150 créditos de coleção!")
+
+        return colecao, fragmentos, creditos_colecao, sets_completos
+
+    finally:
+        print("Giro de roleta finalizado.")
+
+# Recebe a coleção, os fragmentos, os créditos de coleção e os sets já completados; sorteia uma
+# cartinha (raridade + carta + versão brilhante), credita fragmentos em caso de repetida, ativa a
+# Química de Set quando aplicável, e retorna os quatro valores atualizados.
+
+
+def registrar_acao(acoes: list, pontos_ecoa: int, historico: list, colecao: dict, fragmentos: int, creditos_colecao: int, sets_completos: set) -> tuple:
     print("\nAções Sustentáveis disponíveis:")
 
     for i, acao in enumerate(acoes):
@@ -70,7 +191,7 @@ def registrar_acao(acoes: list, pontos_ecoa: int, historico: list) -> int:
 
     if escolha == 0:
         print("Não foi possível registrar a ação. Tente novamente.")
-        return pontos_ecoa
+        return pontos_ecoa, colecao, fragmentos, creditos_colecao, sets_completos
 
     try:
         acao_escolhida = acoes[escolha - 1]
@@ -78,7 +199,7 @@ def registrar_acao(acoes: list, pontos_ecoa: int, historico: list) -> int:
 
     except Exception as erro:
         print(f"Ocorreu um erro ao registrar a ação: {erro}")
-        return pontos_ecoa
+        return pontos_ecoa, colecao, fragmentos, creditos_colecao, sets_completos
 
     else:
         pontos_ecoa += pontos
@@ -87,12 +208,16 @@ def registrar_acao(acoes: list, pontos_ecoa: int, historico: list) -> int:
         print(f"Boa! Você ganhou +{pontos} Pontos ECOA com: {acao_escolhida}!")
         print("Transação validada e registrada com sucesso via Blockchain.")
 
-        return pontos_ecoa
+        # Toda ação verificada com sucesso concede uma tentativa na roleta de cartas.
+        colecao, fragmentos, creditos_colecao, sets_completos = girar_roleta(colecao, fragmentos, creditos_colecao, sets_completos)
+
+        return pontos_ecoa, colecao, fragmentos, creditos_colecao, sets_completos
 
     finally:
         print("Operação de registro finalizada.")
 
-# Recebe as ações, o saldo e o histórico, registra uma ação e retorna o novo saldo.
+# Recebe as ações, o saldo, o histórico e o estado da coleção; registra uma ação, aciona a roleta
+# de cartas e retorna o novo saldo junto com o estado atualizado da coleção.
 
 
 def ver_meu_nivel(pontos_ecoa: int, pontos_resgatados: int, historico: list) -> str:
@@ -308,3 +433,71 @@ def excluir_acao_historico(pontos_ecoa: int, historico: list) -> int:
 
 # Recebe o saldo e o histórico, remove uma ação e retorna o novo saldo.
 
+
+def ver_colecao(colecao: dict, fragmentos: int, creditos_colecao: int) -> None:
+    print("\n=== MINHA COLEÇÃO ===")
+    print(f"Progresso: {len(colecao)}/20 cartas | Fragmentos: {fragmentos} | Créditos de Coleção: {creditos_colecao}")
+
+    for set_nome, cartas in SETS.items():
+        obtidas = sum(1 for nome_carta, _ in cartas if nome_carta in colecao)
+        print(f"\n-- {set_nome} ({obtidas}/4) --")
+
+        for nome_carta, raridade in cartas:
+            if nome_carta in colecao:
+                brilho = " ✦ Brilhante" if colecao[nome_carta]["brilhante"] else ""
+                print(f"  [OK] {nome_carta} ({raridade}){brilho}")
+            else:
+                print(f"  [ ? ] ??? ({raridade}) - ainda não obtida")
+
+# Recebe a coleção, os fragmentos e os créditos, e exibe o progresso da coleção organizado por set.
+
+
+def fabrica_de_cartas(colecao: dict, fragmentos: int) -> tuple:
+    faltantes = []
+
+    for set_nome, cartas in SETS.items():
+        for nome_carta, raridade in cartas:
+            if nome_carta not in colecao:
+                faltantes.append((set_nome, nome_carta, raridade))
+
+    if not faltantes:
+        print("\nParabéns! Você já possui todas as cartas da coleção.")
+        return colecao, fragmentos
+
+    print(f"\n=== FÁBRICA DE CARTAS (Saldo de Fragmentos: {fragmentos}) ===")
+
+    for i, (set_nome, nome_carta, raridade) in enumerate(faltantes):
+        custo = CUSTO_FABRICA_POR_RARIDADE[raridade]
+        print(f"{i + 1} - {nome_carta} ({raridade}, {set_nome}) - {custo} fragmentos")
+
+    print(f"{len(faltantes) + 1} - Voltar")
+
+    escolha = validar_opcao_numerica("\nQual carta deseja montar? ", 1, len(faltantes) + 1)
+
+    if escolha == 0 or escolha == len(faltantes) + 1:
+        return colecao, fragmentos
+
+    try:
+        set_nome, nome_carta, raridade = faltantes[escolha - 1]
+        custo = CUSTO_FABRICA_POR_RARIDADE[raridade]
+
+        if fragmentos < custo:
+            raise Exception(f"Fragmentos insuficientes! Você precisa de {custo}, mas tem apenas {fragmentos}.")
+
+    except Exception as erro:
+        print(f"\n{erro}")
+        return colecao, fragmentos
+
+    else:
+        fragmentos -= custo
+        colecao[nome_carta] = {"set": set_nome, "raridade": raridade, "brilhante": False}
+
+        print(f"\nSucesso! Você montou a carta '{nome_carta}' ({raridade}) do set {set_nome}!")
+
+        return colecao, fragmentos
+
+    finally:
+        print("Operação da Fábrica de Cartas finalizada.")
+
+# Recebe a coleção e os fragmentos, permite montar (craftar) uma carta faltante e retorna os
+# valores atualizados. Não é possível montar uma carta já possuída (lista só mostra faltantes).
