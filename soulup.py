@@ -501,3 +501,4 @@ def fabrica_de_cartas(colecao: dict, fragmentos: int) -> tuple:
 
 # Recebe a coleção e os fragmentos, permite montar (craftar) uma carta faltante e retorna os
 # valores atualizados. Não é possível montar uma carta já possuída (lista só mostra faltantes).
+
